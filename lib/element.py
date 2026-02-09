@@ -739,7 +739,68 @@ class ElementHandler:
 
 
 class ElementHandlerMerge(ElementHandler):
+
     def prepare_original(self, elements):
+        config = get_config()
+
+        # Check if smart merge mode is enabled
+        if config.get('merge_enabled', False) and config.get('merge_mode') == 'smart':
+            try:
+                return self._prepare_original_smart(elements, config)
+            except Exception:
+                # Fall back to legacy implementation on error
+                log.exception('Smart merge failed, using legacy method')
+
+        # Use original implementation
+        return self._prepare_original_legacy(elements)
+
+    def _prepare_original_smart(self, elements, config):
+        """Prepare paragraphs using ParagraphMerger for intelligent merging."""
+        # Import here to avoid circular dependency
+        from .paragraph_merge import ParagraphMerger, ParagraphMergeConfig
+        from .chunk import Paragraph, BoundaryType
+
+        # Create smart merge config from existing settings
+        merge_config = ParagraphMergeConfig()
+        merge_config.max_paragraphs = config.get('merge_max_paragraphs', 50)
+        merge_config.max_characters = self.merge_length or config.get('merge_length', 1800)
+        merge_config.separator = self.separator
+        merge_config.enable_format_preservation = config.get(
+            'merge_format_preservation', False)
+
+        # Create merger and wrap elements
+        merger = ParagraphMerger(merge_config)
+        smart_paragraphs = []
+
+        for eid, element in enumerate(elements):
+            if element.ignored:
+                continue
+            element.set_placeholder(self.placeholder)
+            element.set_position(self.position)
+            element.set_target_direction(self.target_direction)
+            element.set_translation_lang(self.translation_lang)
+            element.set_original_color(self.original_color)
+            element.set_translation_color(self.translation_color)
+            if self.column_gap is not None:
+                element.set_column_gap(self.column_gap)
+            element.set_remove_pattern(self.remove_pattern)
+            element.set_reserve_pattern(self.reserve_pattern)
+
+            # Wrap element for smart merger
+            smart_para = Paragraph(
+                element,
+                element_type=element.get_name() or 'p',
+                boundary_type=BoundaryType.PARAGRAPH
+            )
+            smart_para.eid = eid
+            smart_paragraphs.append(smart_para)
+
+        # Merge and convert to originals format
+        chunks = merger.merge(smart_paragraphs)
+        return self._chunks_to_originals(chunks)
+
+    def _prepare_original_legacy(self, elements):
+        """Original implementation using simple character accumulation."""
         raw = ''
         txt = ''
         oid = 0
@@ -774,6 +835,29 @@ class ElementHandlerMerge(ElementHandler):
         if txt:
             self.originals.append((oid, md5, raw, txt, False))
         return self.originals
+
+    def _chunks_to_originals(self, chunks):
+        """Convert smart chunks to originals format."""
+        oid = 0
+        originals = []
+
+        for chunk in chunks:
+            raw_parts = []
+            txt_parts = []
+
+            for smart_para in chunk.paragraphs:
+                element = smart_para.element
+                raw_parts.append(element.get_raw())
+                txt_parts.append(element.get_content())
+
+            raw = self.separator.join(raw_parts) + self.separator
+            txt = self.separator.join(txt_parts) + self.separator
+
+            md5 = uid('%s%s' % (oid, txt))
+            originals.append((oid, md5, raw, txt, False))
+            oid += 1
+
+        return originals
 
     def align_paragraph(self, paragraph):
         # Compatible with using the placeholder as the separator.
