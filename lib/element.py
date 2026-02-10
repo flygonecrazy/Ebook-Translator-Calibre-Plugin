@@ -740,18 +740,30 @@ class ElementHandler:
 
 class ElementHandlerMerge(ElementHandler):
 
+    def add_translations(self, paragraphs):
+        """Override to use cached content for consistent key matching."""
+        translations = self.prepare_translation(paragraphs)
+        for eid, element in self.elements.copy().items():
+            if element.ignored:
+                element.add_translation()
+                continue
+            # Use cached content to ensure key consistency
+            original = (element._merge_content if hasattr(element, '_merge_content')
+                       else element.get_content())
+            translation = translations.get(original)
+            if translation is None:
+                element.add_translation()
+                continue
+            element.add_translation(translation)
+            self.elements.pop(eid)
+
     def prepare_original(self, elements):
         config = get_config()
-
-        # Check if paragraph merge mode is enabled
         if config.get('merge_enabled', False) and config.get('merge_mode') == 'paragraph':
             try:
                 return self._prepare_original_paragraph(elements, config)
             except Exception:
-                # Fall back to legacy implementation on error
                 log.exception('Paragraph merge failed, using legacy method')
-
-        # Use original implementation
         return self._prepare_original_legacy(elements)
 
     def _prepare_original_paragraph(self, elements, config):
@@ -773,8 +785,10 @@ class ElementHandlerMerge(ElementHandler):
         smart_paragraphs = []
 
         for eid, element in enumerate(elements):
-            if element.ignored:
-                continue
+            # Add to elements dict FIRST (required for add_translations later)
+            self.elements[eid] = element
+
+            # Set element properties
             element.set_placeholder(self.placeholder)
             element.set_position(self.position)
             element.set_target_direction(self.target_direction)
@@ -786,7 +800,12 @@ class ElementHandlerMerge(ElementHandler):
             element.set_remove_pattern(self.remove_pattern)
             element.set_reserve_pattern(self.reserve_pattern)
 
-            # Wrap element for smart merger
+            if element.ignored:
+                continue
+
+            # Cache content for consistent key matching during translation lookup
+            element._merge_content = element.get_content()
+
             smart_para = Paragraph(
                 element,
                 element_type=element.get_name() or 'p',
@@ -848,7 +867,9 @@ class ElementHandlerMerge(ElementHandler):
             for smart_para in chunk.paragraphs:
                 element = smart_para.element
                 raw_parts.append(element.get_raw())
-                txt_parts.append(element.get_content())
+                # Use cached content for consistent key matching
+                txt_parts.append(element._merge_content if hasattr(element, '_merge_content')
+                                   else element.get_content())
 
             raw = self.separator.join(raw_parts) + self.separator
             txt = self.separator.join(txt_parts) + self.separator
