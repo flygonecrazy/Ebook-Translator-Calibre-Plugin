@@ -743,18 +743,18 @@ class ElementHandlerMerge(ElementHandler):
     def prepare_original(self, elements):
         config = get_config()
 
-        # Check if smart merge mode is enabled
-        if config.get('merge_enabled', False) and config.get('merge_mode') == 'smart':
+        # Check if paragraph merge mode is enabled
+        if config.get('merge_enabled', False) and config.get('merge_mode') == 'paragraph':
             try:
-                return self._prepare_original_smart(elements, config)
+                return self._prepare_original_paragraph(elements, config)
             except Exception:
                 # Fall back to legacy implementation on error
-                log.exception('Smart merge failed, using legacy method')
+                log.exception('Paragraph merge failed, using legacy method')
 
         # Use original implementation
         return self._prepare_original_legacy(elements)
 
-    def _prepare_original_smart(self, elements, config):
+    def _prepare_original_paragraph(self, elements, config):
         """Prepare paragraphs using ParagraphMerger for intelligent merging."""
         # Import here to avoid circular dependency
         from .paragraph_merge import ParagraphMerger, ParagraphMergeConfig
