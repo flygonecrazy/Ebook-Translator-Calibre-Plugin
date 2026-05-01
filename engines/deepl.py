@@ -156,22 +156,25 @@ class DeeplWebFreeTranslate(Base):
         }
 
     def get_body(self, text):
-        regional_variant = {
+        body = {
             'app_information': {
                 'app_build': 'Chrome',
                 'app_version': 'any',
-                'instance_id': 'edaf861d-ec1a-446c-8411-546fe2a403f6',  # random UUID
+                'instance_id': '%08x-%04x-%04x-%04x-%012x' % (
+                    random.getrandbits(32), random.getrandbits(16),
+                    random.getrandbits(16), random.getrandbits(16),
+                    random.getrandbits(48)),
                 'os': 'Windows',
                 'os_version': 'any',
             },
             'language_model': 'next-gen',
-            'source_lang': 'auto',
+            'source_lang': self._get_source_code().lower(),
             'text': [text],
             'usage_type': 'Translate',
         }
-        regional_variant['target_lang'] = self._get_target_code().lower()
+        body['target_lang'] = self._get_target_code().lower()
 
-        return json.dumps(regional_variant, separators=(',', ':'))
+        return json.dumps(body, separators=(',', ':'))
 
     def get_result(self, response):
         return json.loads(response)['translations'][0]['text']
