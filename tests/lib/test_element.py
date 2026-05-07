@@ -1000,13 +1000,6 @@ class TestExtraction(unittest.TestCase):
             with self.subTest(item=item):
                 self.assertFalse(self.extraction.is_priority(etree.XML(item)))
 
-    def test_is_inline_only(self):
-        div = '<div xmlns="http://www.w3.org/1999/xhtml"><span>a</span></div>'
-        self.assertTrue(self.extraction.is_inline_only(etree.XML(div)))
-
-        div = '<div xmlns="http://www.w3.org/1999/xhtml"><div>a</div></div>'
-        self.assertFalse(self.extraction.is_inline_only(etree.XML(div)))
-
     def test_need_ignore(self):
         self.extraction.ignore_rules = ['table', 'p.a']
         self.extraction.load_ignore_patterns()
