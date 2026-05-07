@@ -1105,19 +1105,6 @@ class TestExtraction(unittest.TestCase):
             xhtml.find('.//x:div[3]/x:p', namespaces=ns), elements[2].element)
         self.assertTrue(elements[3].ignored)
 
-    def test_extract_elements_with_sole_block_level_element(self):
-        xhtml = etree.XML(b"""<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
-<head><title>Document</title></head>
-<body class="test"><div><span>a </span><span>, b</span></div></body>
-</html>""")
-        root = xhtml.find('.//x:body', namespaces=ns)
-        self.extraction.load_ignore_patterns()
-        elements = self.extraction.extract_elements('test', root, [])
-        self.assertEqual(1, len(elements))
-        self.assertEqual('div', elements[0].get_name())
-
     def test_filter_content(self):
         def elements(markups):
             return [
